@@ -29,9 +29,14 @@ ds_test = ds_test.prefetch(tf.data.AUTOTUNE)
 
 # %% Build Model
 model = tf.keras.models.Sequential([
-  tf.keras.layers.Flatten(input_shape=(28, 28)),
-  tf.keras.layers.Dense(128, activation='relu'),
-  tf.keras.layers.Dense(10)
+  tf.keras.Input(shape=(28, 28, 1)),
+        tf.keras.layers.Conv2D(32, kernel_size=(3, 3), activation="relu"),
+        tf.keras.layers.MaxPooling2D(pool_size=(2, 2)),
+        tf.keras.layers.Conv2D(64, kernel_size=(3, 3), activation="relu"),
+        tf.keras.layers.MaxPooling2D(pool_size=(2, 2)),
+        tf.keras.layers.Flatten(),
+        tf.keras.layers.Dropout(0.5),
+        tf.keras.layers.Dense(10, activation="softmax"),
 ])
 model.compile(
     optimizer=tf.keras.optimizers.Adam(0.001),
@@ -49,30 +54,12 @@ model.fit(
 # %% 產生雜訊
 
 def gen_noise(dim=28, nex = 1):
-    input_img_data = tf.random.uniform((nex, dim, dim, 3))
+    input_img_data = tf.random.uniform((nex, dim, dim, 1))
     return tf.Variable(tf.cast(input_img_data, tf.float32))
 
 #%%
 import matplotlib.pyplot as plt
 import numpy as np
-
-def adjust_hsv(imgs, sat_exp = 2.0, val_exp = 0.5):
-    """ normalize color for less emphasis on lower saturation
-    """
-    # convert to hsv
-    
-    hsv = tf.image.rgb_to_hsv(imgs)
-    hue, sat, val = tf.split(hsv, 3, axis=2)
-    
-    # manipulate saturation and value
-    sat = tf.math.pow(sat,sat_exp)
-    val = tf.math.pow(val,val_exp)
-    # rejoin hsv
-    hsv_new = tf.squeeze(tf.stack([hue, sat, val], axis=2), axis = 3)
-    
-    # convert to rgb
-    rgb = tf.image.hsv_to_rgb(hsv_new)
-    return rgb
 
 def display_features(output_images, filter_titles=None, ncols=10, zoom = 5, sat_exp=2.0, val_exp = 1.0):
     nrows = int(np.ceil(len(output_images[-1]) / ncols))
@@ -86,8 +73,7 @@ def display_features(output_images, filter_titles=None, ncols=10, zoom = 5, sat_
 
     for i in range(len(output_images[-1])):
         ax = axs.flatten()[i]
-        rgb = adjust_hsv(output_images[-1][i], sat_exp = sat_exp, val_exp = val_exp)
-        pt = ax.imshow(rgb)
+        pt = ax.imshow(output_images[-1])
     plt.show()
 
 
@@ -100,5 +86,5 @@ output_images.append(img_data.numpy())
 display_features(output_images)
 
 #%%
-#model.predict(output_images[0])
+model.predict(output_images[0])
 
