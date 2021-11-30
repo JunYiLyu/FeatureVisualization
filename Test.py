@@ -62,7 +62,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 def display_features(output_images, filter_titles=None, ncols=10, zoom = 5, sat_exp=2.0, val_exp = 1.0):
-    nrows = int(np.ceil(len(output_images[-1]) / ncols))
+    nrows = int(np.ceil(len(output_images[0]) / ncols))
     fig, axs = plt.subplots(ncols=ncols, nrows=nrows, figsize=(ncols*5,nrows*5))
     plt.subplots_adjust(left=0, bottom=0, right=1, top=1, hspace = 0.1, wspace = 0.01)
     for axi, ax in enumerate(axs.flatten()):
@@ -71,20 +71,22 @@ def display_features(output_images, filter_titles=None, ncols=10, zoom = 5, sat_
                 ax.set_title(filter_titles[axi], fontsize=20)
         ax.axis('off')
 
-    for i in range(len(output_images[-1])):
+    for i in range(len(output_images[0])):
         ax = axs.flatten()[i]
-        pt = ax.imshow(output_images[-1])
+        pt = ax.imshow(output_images[0][i])
     plt.show()
 
 
 #%% Print Noise Pic
 output_images = []
-# generate initial noise
 img_data = gen_noise()
 output_images.append(img_data.numpy())
-
 display_features(output_images)
 
-#%%
-model.predict(output_images[0])
+#%% print ds_train
+data = list(ds_train)[0] #call 一次 ds_train 就會shuffle ?
+display_features(data)
+model.predict(data[0])[0]
 
+
+#%%
