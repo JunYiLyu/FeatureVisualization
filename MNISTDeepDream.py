@@ -3,7 +3,6 @@ import tensorflow as tf
 import tensorflow_datasets.public_api as tfds
 import matplotlib as mpl
 import IPython.display as display
-import PIL.Image
 import numpy as np
 
 tf.config.run_functions_eagerly(True)
@@ -33,7 +32,6 @@ ds_test = ds_test.batch(128)
 ds_test = ds_test.cache()
 ds_test = ds_test.prefetch(tf.data.AUTOTUNE)
 
-#%% Build Model
 model = tf.keras.models.Sequential([
   tf.keras.Input(shape=(28, 28, 1)),
         tf.keras.layers.Conv2D(32, kernel_size=(3, 3), activation="relu"),
@@ -56,26 +54,37 @@ model.fit(
     validation_data=ds_test,
 )
 
+#%%
+inception_model = tf.keras.applications.InceptionV3(include_top=False, weights='imagenet')
 
 
 #%%
 # Display an image
-def gen_noise(dim=28, nex = 1):
-    input_img_data = tf.random.uniform((dim, dim, 1))
+def gen_noise(dim=28, channel = 1):
+    input_img_data = tf.random.uniform((dim, dim, channel))
     return tf.cast(input_img_data, tf.float32).numpy()
     
 
 tf.keras.utils.array_to_img(
-    gen_noise()
+    gen_noise(dim=200, channel=3)
 )
 
 #%%
 # Maximize the activations of these layers
-names = ['conv2d']
+names = ['conv2d_1']
 layers = [model.get_layer(name).output for name in names]
 
 # Create the feature extraction model
 dream_model = tf.keras.Model(inputs=model.input, outputs=layers)
+
+#%%
+# Maximize the activations of these layers
+inception_names = ['mixed5']
+inception_layers = [inception_model.get_layer(name).output for name in inception_names]
+
+# Create the feature extraction model
+dream_inception_model = tf.keras.Model(inputs=inception_model.input, outputs=inception_layers)
+
 
 #%%
 def calc_loss(img, model):
@@ -131,8 +140,7 @@ def deprocess(img):
   img = 255*(img + 1.0)/2.0
   return tf.cast(img, tf.uint8)
 
-def run_deep_dream_simple(img, steps=100, step_size=0.01):
-  # Convert from uint8 to the range expected by the model.
+def run_deep_dream_simple(img, model, steps=100, step_size=0.01):
   img = tf.convert_to_tensor(img)
   step_size = tf.convert_to_tensor(step_size)
   steps_remaining = steps
@@ -145,13 +153,23 @@ def run_deep_dream_simple(img, steps=100, step_size=0.01):
     steps_remaining -= run_steps
     step += run_steps
 
-    deepdream = DeepDream(dream_model)
+    deepdream = DeepDream(model)
     loss, img = deepdream(img, run_steps, tf.constant(step_size))
 
     display.clear_output(wait=True)
     print ("Step {}, loss {}".format(step, loss))
+    tf.keras.utils.array_to_img(deprocess(img))
   return img
 
-dream_img = run_deep_dream_simple(img=gen_noise(), 
+
+#%%
+dream_img = run_deep_dream_simple(img=gen_noise(dim=28, channel=1), model=dream_model,
                                   steps=100, step_size=0.01)
 tf.keras.utils.array_to_img(dream_img)
+
+
+#%%
+
+dream_inception_img = run_deep_dream_simple(img=gen_noise(dim=225, channel=3), model=dream_inception_model, 
+                                  steps=10000, step_size=0.01)
+tf.keras.utils.array_to_img(dream_inception_img)
