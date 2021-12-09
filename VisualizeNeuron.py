@@ -1,47 +1,38 @@
 #%% Dataset Preprocessing
 import tensorflow as tf
-import tensorflow_datasets.public_api as tfds
 import matplotlib as mpl
 import IPython.display as display
 import numpy as np
 
-vgg = tf.keras.applications.vgg16.VGG16(include_top=False, weights='imagenet')
 
 #%%
 # Display an image
 def gen_noise(dim=28, channel = 1):
     input_img_data = tf.random.uniform((dim, dim, channel))
     return tf.cast(input_img_data, tf.float32).numpy()
-    
-
-tf.keras.utils.array_to_img(
-    gen_noise(dim=225, channel=3)
-)
 
 #%%
-# Maximize the activations of these layers
-inception_names = ['block2_conv1']
-inception_layers = [vgg.get_layer(name).output for name in inception_names]
-
-# Create the feature extraction model
-dream_vgg_model = tf.keras.Model(inputs=vgg.input, outputs=inception_layers)
-
-
-#%%
-def calc_loss(img, model):
+def calc_loss(img, model, w=0, h=0, c=0, unit='layer'):
   # Pass forward the image through the model to retrieve the activations.
   # Converts the image into a batch of size 1.
   img_batch = tf.expand_dims(img, axis=0)
   layer_activations = model(img_batch)
   
-  # pixel tf.math.reduce_mean(layer_activations[0,0,0,:])
-  # chanel tf.math.reduce_mean(layer_activations[:,:,:,2])
+  if unit == 'neuron':
+    return tf.math.reduce_mean(layer_activations[0,w,h,:])
+  elif unit == 'channel':
+    return tf.math.reduce_mean(layer_activations[:,:,:,c])
+  else: #layer
+    return tf.math.reduce_mean(layer_activations)
 
-  return  tf.math.reduce_mean(layer_activations[0,0,0,:])
-
-class DeepDream(tf.Module):
-  def __init__(self, model):
+#%%
+class FeatureVisualization(tf.Module):
+  def __init__(self, model, w=0, h=0, c=0, unit='layer'):
     self.model = model
+    self.w = w
+    self.h = h
+    self.c = c
+    self.unit = unit
 
   @tf.function(
       input_signature=(
@@ -57,7 +48,7 @@ class DeepDream(tf.Module):
           # This needs gradients relative to `img`
           # `GradientTape` only watches `tf.Variable`s by default
           tape.watch(img)
-          loss = calc_loss(img, self.model)
+          loss = calc_loss(img, self.model, self.w, self.h, self.c, self.unit)
 
         # Calculate the gradient of the loss with respect to the pixels of the input image.
         gradients = tape.gradient(loss, img)
@@ -73,7 +64,7 @@ class DeepDream(tf.Module):
       return loss, img
 
 #%%
-def run_deep_dream_simple(img, model, steps=100, step_size=0.01):
+def run_deep_dream_simple(img, model, steps=100, step_size=0.01,w=0, h=0, c=0, unit='layer'):
   img = tf.convert_to_tensor(img)
   step_size = tf.convert_to_tensor(step_size)
   steps_remaining = steps
@@ -86,13 +77,23 @@ def run_deep_dream_simple(img, model, steps=100, step_size=0.01):
     steps_remaining -= run_steps
     step += run_steps
 
-    deepdream = DeepDream(model)
-    loss, img = deepdream(img, run_steps, tf.constant(step_size))
+    featureVisualization = FeatureVisualization(model, w, h, c, unit)
+    loss, img = featureVisualization(img, run_steps, tf.constant(step_size))
 
     # display.clear_output(wait=True)
     print ("Step {}, loss {}".format(step, loss))
     tf.keras.utils.array_to_img(img)
   return img
+
+#%%
+backbone = tf.keras.applications.vgg16.VGG16(include_top=False, weights='imagenet')
+
+# Maximize the activations of these layers
+layer_names = ['block2_conv1']
+layers = [backbone.get_layer(name).output for name in layer_names]
+
+# Create the feature extraction model
+sub_model = tf.keras.Model(inputs=backbone.input, outputs=layers)
 
 
 
@@ -102,10 +103,10 @@ dog_img = PIL.Image.open('C:\\Users\\jx830\\OneDrive\\桌面\\YellowLabradorLook
 tf.keras.utils.array_to_img(dog_img)
 dog_img = tf.keras.applications.vgg16.preprocess_input(np.array(dog_img))
 
-dream_inception_dog_img = run_deep_dream_simple(gen_noise(dim=300,channel=3), model=dream_vgg_model, 
-                                  steps=600, step_size=0.01)
+dream_inception_dog_img = run_deep_dream_simple(gen_noise(dim=300,channel=3), model=sub_model, 
+                                  steps=300, step_size=0.01)
 
-l = dream_vgg_model(tf.expand_dims(dog_img,axis=0))
+l = sub_model(tf.expand_dims(dog_img,axis=0))
 
 
 
