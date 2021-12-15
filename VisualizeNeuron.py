@@ -3,6 +3,7 @@ import tensorflow as tf
 import matplotlib as mpl
 import IPython.display as display
 import numpy as np
+import PIL
 
 
 #%%
@@ -41,7 +42,6 @@ class FeatureVisualization(tf.Module):
         tf.TensorSpec(shape=[], dtype=tf.float32),)
   )
   def __call__(self, img, steps, step_size):
-      print("Tracing")
       loss = tf.constant(0.0)
       for n in tf.range(steps):
         with tf.GradientTape() as tape:
@@ -64,7 +64,7 @@ class FeatureVisualization(tf.Module):
       return loss, img
 
 #%%
-def run_deep_dream_simple(img, model, steps=100, step_size=0.01,w=0, h=0, c=0, unit='layer'):
+def run_visualization_simple(img, model, steps=100, step_size=0.01,w=0, h=0, c=0, unit='layer'):
   img = tf.convert_to_tensor(img)
   step_size = tf.convert_to_tensor(step_size)
   steps_remaining = steps
@@ -89,7 +89,7 @@ def run_deep_dream_simple(img, model, steps=100, step_size=0.01,w=0, h=0, c=0, u
 backbone = tf.keras.applications.vgg16.VGG16(include_top=False, weights='imagenet')
 
 # Maximize the activations of these layers
-layer_names = ['block2_conv1']
+layer_names = ['block3_conv3']
 layers = [backbone.get_layer(name).output for name in layer_names]
 
 # Create the feature extraction model
@@ -98,18 +98,16 @@ sub_model = tf.keras.Model(inputs=backbone.input, outputs=layers)
 
 
 #%%
-import PIL
-dog_img = PIL.Image.open('C:\\Users\\jx830\\OneDrive\\桌面\\YellowLabradorLooking_new.jpg')
-tf.keras.utils.array_to_img(dog_img)
-dog_img = tf.keras.applications.vgg16.preprocess_input(np.array(dog_img))
+target_img = PIL.Image.open('C:\\Users\\jx830\\OneDrive\\桌面\\ntust.jpg')
+target_img = tf.keras.applications.vgg16.preprocess_input(np.array(target_img))
 
-dream_inception_dog_img = run_deep_dream_simple(gen_noise(dim=300,channel=3), model=sub_model, 
+dream_target_img = run_visualization_simple(target_img, model=sub_model, 
                                   steps=300, step_size=0.01)
 
-l = sub_model(tf.expand_dims(dog_img,axis=0))
+l = sub_model(tf.expand_dims(target_img,axis=0))
 
 
 
-tf.keras.utils.array_to_img(dream_inception_dog_img)
+tf.keras.utils.array_to_img(dream_target_img)
 
 # %%
