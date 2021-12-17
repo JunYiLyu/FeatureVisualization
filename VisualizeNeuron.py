@@ -20,9 +20,19 @@ def calc_loss(img, model, w=0, h=0, c=0, unit='layer'):
   layer_activations = model(img_batch)
   
   if unit == 'neuron':
-    return tf.math.reduce_mean(layer_activations[0,w,h,:])
+    return layer_activations[0,w,h,c]
+  if unit == 'pixel':
+    return tf.math.reduce_mean(layer_activations[0,w,h])
   elif unit == 'channel':
     return tf.math.reduce_mean(layer_activations[:,:,:,c])
+  elif unit == 'neuron_softmax':
+    return tf.math.softmax(layer_activations[0,w,h])[c]
+  elif unit == 'neuron_constraint':
+    nonzero_count = 0.0
+    for i in layer_activations[0,w,h]:
+      if(i > 0.0):
+        nonzero_count += 1.0
+    return layer_activations[0,w,h,c] - tf.math.reduce_sum(layer_activations[0,w,h]) / nonzero_count
   else: #layer
     return tf.math.reduce_mean(layer_activations)
 
@@ -86,10 +96,10 @@ def run_visualization_simple(img, model, steps=100, step_size=0.01,w=0, h=0, c=0
   return img
 
 #%%
-backbone = tf.keras.applications.vgg16.VGG16(include_top=False, weights='imagenet')
+backbone = tf.keras.applications.vgg19.VGG19(include_top=False, weights='imagenet')
 
 # Maximize the activations of these layers
-layer_names = ['block3_conv3']
+layer_names = ['block5_conv4']
 layers = [backbone.get_layer(name).output for name in layer_names]
 
 # Create the feature extraction model
@@ -98,16 +108,13 @@ sub_model = tf.keras.Model(inputs=backbone.input, outputs=layers)
 
 
 #%%
-target_img = PIL.Image.open('C:\\Users\\jx830\\OneDrive\\桌面\\ntust.jpg')
-target_img = tf.keras.applications.vgg16.preprocess_input(np.array(target_img))
+# target_img = PIL.Image.open('C:\\Users\\jx830\\OneDrive\\桌面\\ntust.jpg')
+# target_img = tf.keras.applications.vgg16.preprocess_input(np.array(target_img))
+noise_image = gen_noise(dim=300, channel=3)
+dream_target_img = run_visualization_simple(noise_image, model=sub_model, 
+                                  steps=300, step_size=0.01, unit='channel', c=4)
 
-dream_target_img = run_visualization_simple(target_img, model=sub_model, 
-                                  steps=300, step_size=0.01)
-
-l = sub_model(tf.expand_dims(target_img,axis=0))
-
-
-
+l = sub_model(tf.expand_dims(gen_noise(dim=300, channel=3),axis=0))
 tf.keras.utils.array_to_img(dream_target_img)
 
 # %%
